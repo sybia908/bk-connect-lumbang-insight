@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Users, FileText, AlertTriangle, MessageSquare, LogOut, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import AIChat from '@/components/AIChat';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -98,24 +98,31 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-gradient rounded-full flex items-center justify-center">
-                <span className="text-white font-bold">BK</span>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-white">
+                <img 
+                  src="https://drive.google.com/uc?export=view&id=1DhBycV4hx0FYtOEGM7IwwV5xbOSbSSw8" 
+                  alt="BK Logo" 
+                  className="w-8 h-8 object-contain"
+                />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Dashboard Admin</h1>
-                <p className="text-sm text-gray-600">Selamat datang, {profile?.nama_lengkap}</p>
+                <h1 className="text-xl font-bold text-foreground">Dashboard Admin</h1>
+                <p className="text-sm text-muted-foreground">Selamat datang, {profile?.nama_lengkap}</p>
               </div>
             </div>
-            <Button onClick={handleSignOut} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center space-x-3">
+              <ThemeToggle />
+              <Button onClick={handleSignOut} variant="outline" size="sm">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -168,8 +175,8 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -236,6 +243,11 @@ const AdminDashboard = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* AI Chat Section */}
+        <div className="mb-8">
+          <AIChat />
         </div>
       </div>
     </div>
