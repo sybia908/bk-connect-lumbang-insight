@@ -1,287 +1,335 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  MessageSquare, 
-  AlertTriangle, 
-  Calendar, 
-  BookOpen,
-  LogOut,
-  Plus,
-  Eye
-} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { MessageSquare, AlertTriangle, LogOut, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface SiswaStats {
-  totalPoinPelanggaran: number;
-  konsultasiAktif: number;
-  konsultasiSelesai: number;
-  jadwalMendatang: number;
-}
 
 const SiswaDashboard = () => {
   const { profile, signOut } = useAuth();
-  const [stats, setStats] = useState<SiswaStats>({
-    totalPoinPelanggaran: 0,
-    konsultasiAktif: 0,
-    konsultasiSelesai: 0,
-    jadwalMendatang: 0
-  });
-  const [siswaData, setSiswaData] = useState<any>(null);
+  const { toast } = useToast();
+  const [consultations, setConsultations] = useState([]);
+  const [violations, setViolations] = useState([]);
+  const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmittingConsultation, setIsSubmittingConsultation] = useState(false);
+  
+  // Form states
+  const [consultationTitle, setConsultationTitle] = useState('');
+  const [consultationMessage, setConsultationMessage] = useState('');
+  const [consultationCategory, setConsultationCategory] = useState('');
 
   useEffect(() => {
-    fetchDashboardStats();
+    fetchData();
   }, [profile]);
 
-  const fetchDashboardStats = async () => {
+  const fetchData = async () => {
     if (!profile) return;
-    
+
     try {
-      setLoading(true);
-      
       // Get student data
-      const { data: siswa } = await supabase
+      const { data: studentInfo, error: studentError } = await supabase
         .from('siswa')
-        .select('*, kelas:kelas_id(nama_kelas, tingkat)')
+        .select('*')
         .eq('user_id', profile.id)
         .single();
 
-      setSiswaData(siswa);
+      if (studentError) throw studentError;
+      setStudentData(studentInfo);
 
-      if (siswa) {
-        // Fetch active consultations
-        const { count: aktifCount } = await supabase
-          .from('konsultasi')
-          .select('*', { count: 'exact', head: true })
-          .eq('siswa_id', siswa.id)
-          .in('status', ['pending', 'dijadwalkan']);
+      // Fetch consultations
+      const { data: consultationsData, error: consultationsError } = await supabase
+        .from('konsultasi')
+        .select('*')
+        .eq('siswa_id', studentInfo.id)
+        .order('created_at', { ascending: false });
 
-        // Fetch completed consultations
-        const { count: selesaiCount } = await supabase
-          .from('konsultasi')
-          .select('*', { count: 'exact', head: true })
-          .eq('siswa_id', siswa.id)
-          .eq('status', 'selesai');
+      if (consultationsError) throw consultationsError;
 
-        // Fetch upcoming scheduled consultations
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const { count: jadwalCount } = await supabase
-          .from('konsultasi')
-          .select('*', { count: 'exact', head: true })
-          .eq('siswa_id', siswa.id)
-          .eq('status', 'dijadwalkan')
-          .gte('tanggal_jadwal', new Date().toISOString());
+      // Fetch violations
+      const { data: violationsData, error: violationsError } = await supabase
+        .from('pelanggaran_siswa')
+        .select(`
+          *,
+          jenis_pelanggaran_ref (nama_pelanggaran, kategori)
+        `)
+        .eq('siswa_id', studentInfo.id)
+        .order('created_at', { ascending: false });
 
-        setStats({
-          totalPoinPelanggaran: siswa.total_poin_pelanggaran || 0,
-          konsultasiAktif: aktifCount || 0,
-          konsultasiSelesai: selesaiCount || 0,
-          jadwalMendatang: jadwalCount || 0
-        });
-      }
+      if (violationsError) throw violationsError;
+
+      setConsultations(consultationsData || []);
+      setViolations(violationsData || []);
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Gagal memuat data",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleSubmitConsultation = async (e) => {
+    e.preventDefault();
+    
+    if (!consultationTitle.trim() || !consultationMessage.trim()) {
+      toast({
+        title: "Error",
+        description: "Judul dan pesan konsultasi harus diisi",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmittingConsultation(true);
+    try {
+      const { error } = await supabase
+        .from('konsultasi')
+        .insert({
+          siswa_id: studentData?.id,
+          judul: consultationTitle,
+          deskripsi: consultationMessage,
+          kategori: consultationCategory || null,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Konsultasi berhasil dikirim"
+      });
+
+      // Reset form
+      setConsultationTitle('');
+      setConsultationMessage('');
+      setConsultationCategory('');
+      
+      // Refresh data
+      fetchData();
+    } catch (error) {
+      console.error('Error submitting consultation:', error);
+      toast({
+        title: "Error",
+        description: "Gagal mengirim konsultasi",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingConsultation(false);
+    }
+  };
+
+  const handleSignOut = async () => {
     await signOut();
+    toast({
+      title: "Logout Berhasil",
+      description: "Anda telah logout dari sistem"
+    });
   };
 
-  const getPoinColor = (poin: number) => {
-    if (poin < 25) return 'text-green-600';
-    if (poin < 50) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getPoinStatus = (poin: number) => {
-    if (poin < 25) return 'Aman';
-    if (poin < 50) return 'Perhatian';
-    return 'Risiko Tinggi';
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-white font-bold text-xl">BK</span>
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-gradient rounded-full flex items-center justify-center">
                 <span className="text-white font-bold">BK</span>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Dashboard Siswa</h1>
-                <p className="text-sm text-gray-500">BK Connect - SMA Negeri 1 Lumbang</p>
+                <h1 className="text-xl font-bold text-gray-900">Dashboard Siswa</h1>
+                <p className="text-sm text-gray-600">Selamat datang, {profile?.nama_lengkap}</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{profile?.nama_lengkap}</p>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-xs">Siswa</Badge>
-                  {siswaData && (
-                    <Badge variant="outline" className="text-xs">
-                      {siswaData.kelas?.nama_kelas}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <Button onClick={handleSignOut} variant="outline" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Selamat Datang, {siswaData?.nama_lengkap || profile?.nama_lengkap}
-          </h2>
-          <p className="text-gray-600">
-            Kelola konsultasi dan lihat riwayat bimbingan Anda.
-          </p>
-          {siswaData && (
-            <div className="mt-2 text-sm text-gray-500">
-              NIS: {siswaData.nis} | NISN: {siswaData.nisn} | Kelas: {siswaData.kelas?.nama_kelas}
-            </div>
-          )}
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Konsultasi</CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{consultations.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Poin Pelanggaran</CardTitle>
-              <AlertTriangle className={`h-4 w-4 ${getPoinColor(stats.totalPoinPelanggaran)}`} />
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${getPoinColor(stats.totalPoinPelanggaran)}`}>
-                {loading ? '...' : stats.totalPoinPelanggaran}
+              <div className="text-2xl font-bold text-red-600">
+                {studentData?.total_poin_pelanggaran || 0}
               </div>
-              <p className="text-xs text-gray-500">
-                Status: {getPoinStatus(stats.totalPoinPelanggaran)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Konsultasi Aktif</CardTitle>
-              <MessageSquare className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {loading ? '...' : stats.konsultasiAktif}
-              </div>
-              <p className="text-xs text-gray-500">Sedang berjalan</p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Konsultasi Selesai</CardTitle>
-              <BookOpen className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {loading ? '...' : stats.konsultasiSelesai}
-              </div>
-              <p className="text-xs text-gray-500">Total selesai</p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Jadwal Mendatang</CardTitle>
-              <Calendar className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {loading ? '...' : stats.jadwalMendatang}
-              </div>
-              <p className="text-xs text-gray-500">Konsultasi terjadwal</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Submit Consultation Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Konsultasi & Bimbingan
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Ajukan Konsultasi
               </CardTitle>
               <CardDescription>
-                Ajukan konsultasi atau lihat riwayat bimbingan
+                Ajukan konsultasi dengan Guru BK
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start bg-primary-gradient hover:bg-primary-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajukan Konsultasi Baru
+              <form onSubmit={handleSubmitConsultation} className="space-y-4">
+                <div>
+                  <Label htmlFor="consultation-category">Kategori (Opsional)</Label>
+                  <Input
+                    id="consultation-category"
+                    value={consultationCategory}
+                    onChange={(e) => setConsultationCategory(e.target.value)}
+                    placeholder="Contoh: Pribadi, Sosial, Belajar"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="consultation-title">Judul Konsultasi</Label>
+                  <Input
+                    id="consultation-title"
+                    value={consultationTitle}
+                    onChange={(e) => setConsultationTitle(e.target.value)}
+                    placeholder="Masukkan judul konsultasi"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="consultation-message">Pesan</Label>
+                  <Textarea
+                    id="consultation-message"
+                    value={consultationMessage}
+                    onChange={(e) => setConsultationMessage(e.target.value)}
+                    placeholder="Jelaskan masalah atau hal yang ingin dikonsultasikan"
+                    rows={4}
+                    required
+                  />
+                </div>
+                <Button 
+                  type="submit"
+                  disabled={isSubmittingConsultation}
+                  className="w-full"
+                >
+                  {isSubmittingConsultation ? 'Mengirim...' : 'Kirim Konsultasi'}
                 </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Lihat Konsultasi Aktif
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Riwayat Konsultasi
-                </Button>
-              </div>
+              </form>
             </CardContent>
           </Card>
 
+          {/* My Violations */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertTriangle className="w-5 h-5 mr-2" />
-                Riwayat & Informasi
-              </CardTitle>
+              <CardTitle>Riwayat Pelanggaran</CardTitle>
               <CardDescription>
-                Lihat riwayat pelanggaran dan informasi BK
+                Daftar pelanggaran yang pernah dilakukan
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Lihat Riwayat Pelanggaran
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Jadwal Konsultasi
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Panduan BK
-                </Button>
-              </div>
+              {violations.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Tidak ada pelanggaran</p>
+              ) : (
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {violations.map((violation) => (
+                    <div key={violation.id} className="border-l-4 border-red-400 pl-4 py-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{violation.jenis_pelanggaran_ref?.nama_pelanggaran}</p>
+                          <p className="text-sm text-gray-600">Kategori: {violation.jenis_pelanggaran_ref?.kategori}</p>
+                          <p className="text-sm text-red-600">Poin: {violation.poin}</p>
+                          {violation.keterangan && (
+                            <p className="text-xs text-gray-500 mt-1">{violation.keterangan}</p>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {new Date(violation.tanggal_pelanggaran).toLocaleDateString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-      </main>
+
+        {/* My Consultations */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Riwayat Konsultasi</CardTitle>
+            <CardDescription>
+              Status dan riwayat konsultasi Anda
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {consultations.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Belum ada konsultasi</p>
+            ) : (
+              <div className="space-y-4">
+                {consultations.map((consultation) => (
+                  <div key={consultation.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-semibold">{consultation.judul}</h3>
+                        {consultation.kategori && (
+                          <p className="text-sm text-gray-600">Kategori: {consultation.kategori}</p>
+                        )}
+                        <p className="text-sm text-gray-500 mt-1">{consultation.deskripsi}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        consultation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        consultation.status === 'dijadwalkan' ? 'bg-blue-100 text-blue-800' :
+                        consultation.status === 'selesai' ? 'bg-green-100 text-green-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {consultation.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Diajukan: {new Date(consultation.created_at).toLocaleDateString('id-ID')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

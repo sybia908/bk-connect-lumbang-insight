@@ -1,265 +1,235 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  AlertTriangle, 
-  MessageSquare, 
-  TrendingUp,
-  LogOut,
-  Eye
-} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { Users, AlertTriangle, MessageSquare, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface WaliKelasStats {
-  totalSiswaKelas: number;
-  pelanggaranBulanIni: number;
-  konsultasiBulanIni: number;
-  siswaRisikoTinggi: number;
-}
 
 const WaliKelasDashboard = () => {
   const { profile, signOut } = useAuth();
-  const [stats, setStats] = useState<WaliKelasStats>({
-    totalSiswaKelas: 0,
-    pelanggaranBulanIni: 0,
-    konsultasiBulanIni: 0,
-    siswaRisikoTinggi: 0
-  });
+  const { toast } = useToast();
+  const [students, setStudents] = useState([]);
+  const [violations, setViolations] = useState([]);
+  const [consultations, setConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardStats();
+    fetchData();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchData = async () => {
     try {
-      setLoading(true);
-      
-      // Get wali kelas data first
-      const { data: kelasData } = await supabase
-        .from('kelas')
-        .select('id, nama_kelas')
-        .eq('wali_kelas_id', profile?.id)
-        .single();
+      // Fetch students in my class
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('siswa')
+        .select(`
+          *,
+          kelas (
+            nama_kelas,
+            wali_kelas_id
+          )
+        `)
+        .eq('kelas.wali_kelas_id', profile?.id);
 
-      if (kelasData) {
-        // Fetch students in class
-        const { count: siswaCount } = await supabase
-          .from('siswa')
-          .select('*', { count: 'exact', head: true })
-          .eq('kelas_id', kelasData.id);
+      if (studentsError) throw studentsError;
 
-        // Fetch violations this month for class students
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const { count: pelanggaranCount } = await supabase
+      // Fetch violations for my students
+      const studentIds = studentsData?.map(s => s.id) || [];
+      if (studentIds.length > 0) {
+        const { data: violationsData, error: violationsError } = await supabase
           .from('pelanggaran_siswa')
-          .select('siswa_id', { count: 'exact', head: true })
-          .in('siswa_id', 
-            (await supabase.from('siswa').select('id').eq('kelas_id', kelasData.id))
-              .data?.map(s => s.id) || []
-          )
-          .gte('tanggal_pelanggaran', `${currentMonth}-01`);
+          .select(`
+            *,
+            siswa (nama_lengkap, nis),
+            jenis_pelanggaran_ref (nama_pelanggaran)
+          `)
+          .in('siswa_id', studentIds)
+          .order('created_at', { ascending: false });
 
-        // Fetch consultations this month for class students
-        const { count: konsultasiCount } = await supabase
+        if (violationsError) throw violationsError;
+
+        // Fetch consultations for my students
+        const { data: consultationsData, error: consultationsError } = await supabase
           .from('konsultasi')
-          .select('siswa_id', { count: 'exact', head: true })
-          .in('siswa_id', 
-            (await supabase.from('siswa').select('id').eq('kelas_id', kelasData.id))
-              .data?.map(s => s.id) || []
-          )
-          .gte('tanggal_pengajuan', `${currentMonth}-01T00:00:00`);
+          .select(`
+            *,
+            siswa (nama_lengkap, nis)
+          `)
+          .in('siswa_id', studentIds)
+          .order('created_at', { ascending: false });
 
-        // Fetch high-risk students (with high violation points)
-        const { count: risikoTinggiCount } = await supabase
-          .from('siswa')
-          .select('*', { count: 'exact', head: true })
-          .eq('kelas_id', kelasData.id)
-          .gte('total_poin_pelanggaran', 50);
+        if (consultationsError) throw consultationsError;
 
-        setStats({
-          totalSiswaKelas: siswaCount || 0,
-          pelanggaranBulanIni: pelanggaranCount || 0,
-          konsultasiBulanIni: konsultasiCount || 0,
-          siswaRisikoTinggi: risikoTinggiCount || 0
-        });
+        setViolations(violationsData || []);
+        setConsultations(consultationsData || []);
       }
+
+      setStudents(studentsData || []);
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Gagal memuat data",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     await signOut();
+    toast({
+      title: "Logout Berhasil",
+      description: "Anda telah logout dari sistem"
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-white font-bold text-xl">BK</span>
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-gradient rounded-full flex items-center justify-center">
                 <span className="text-white font-bold">BK</span>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Dashboard Wali Kelas</h1>
-                <p className="text-sm text-gray-500">BK Connect - SMA Negeri 1 Lumbang</p>
+                <h1 className="text-xl font-bold text-gray-900">Dashboard Wali Kelas</h1>
+                <p className="text-sm text-gray-600">Selamat datang, {profile?.nama_lengkap}</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{profile?.nama_lengkap}</p>
-                <Badge variant="outline" className="text-xs">Wali Kelas</Badge>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <Button onClick={handleSignOut} variant="outline" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Selamat Datang, {profile?.nama_lengkap}
-          </h2>
-          <p className="text-gray-600">
-            Monitor dan kelola siswa kelas Anda dari dashboard ini.
-          </p>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Siswa Kelas</CardTitle>
-              <Users className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Siswa di Kelas</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {loading ? '...' : stats.totalSiswaKelas}
-              </div>
-              <p className="text-xs text-gray-500">Siswa dalam kelas</p>
+              <div className="text-2xl font-bold">{students.length}</div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pelanggaran Bulan Ini</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <CardTitle className="text-sm font-medium">Total Pelanggaran</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {loading ? '...' : stats.pelanggaranBulanIni}
-              </div>
-              <p className="text-xs text-gray-500">Kasus tercatat</p>
+              <div className="text-2xl font-bold">{violations.length}</div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Konsultasi Bulan Ini</CardTitle>
-              <MessageSquare className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Total Konsultasi</CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {loading ? '...' : stats.konsultasiBulanIni}
-              </div>
-              <p className="text-xs text-gray-500">Konsultasi diajukan</p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Siswa Risiko Tinggi</CardTitle>
-              <TrendingUp className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {loading ? '...' : stats.siswaRisikoTinggi}
-              </div>
-              <p className="text-xs text-gray-500">Perlu perhatian khusus</p>
+              <div className="text-2xl font-bold">{consultations.length}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Violations */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Data Siswa Kelas
-              </CardTitle>
+              <CardTitle>Pelanggaran Terbaru</CardTitle>
               <CardDescription>
-                Lihat dan monitor siswa dalam kelas Anda
+                Pelanggaran siswa di kelas Anda
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Lihat Daftar Siswa
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Siswa Bermasalah
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Riwayat Konsultasi
-                </Button>
-              </div>
+              {violations.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Tidak ada pelanggaran</p>
+              ) : (
+                <div className="space-y-3">
+                  {violations.slice(0, 5).map((violation) => (
+                    <div key={violation.id} className="border-l-4 border-red-400 pl-4 py-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{violation.siswa?.nama_lengkap}</p>
+                          <p className="text-sm text-gray-600">{violation.jenis_pelanggaran_ref?.nama_pelanggaran}</p>
+                          <p className="text-xs text-gray-500">Poin: {violation.poin}</p>
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {new Date(violation.tanggal_pelanggaran).toLocaleDateString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Recent Consultations */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertTriangle className="w-5 h-5 mr-2" />
-                Monitor Pelanggaran
-              </CardTitle>
+              <CardTitle>Konsultasi Terbaru</CardTitle>
               <CardDescription>
-                Pantau pelanggaran dan kasus siswa kelas
+                Konsultasi siswa di kelas Anda
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Lihat Pelanggaran Terbaru
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Analisis Pelanggaran
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Laporan Bulanan
-                </Button>
-              </div>
+              {consultations.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Tidak ada konsultasi</p>
+              ) : (
+                <div className="space-y-3">
+                  {consultations.slice(0, 5).map((consultation) => (
+                    <div key={consultation.id} className="border-l-4 border-blue-400 pl-4 py-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{consultation.siswa?.nama_lengkap}</p>
+                          <p className="text-sm text-gray-600">{consultation.judul}</p>
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
+                            consultation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            consultation.status === 'dijadwalkan' ? 'bg-blue-100 text-blue-800' :
+                            consultation.status === 'selesai' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {consultation.status}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {new Date(consultation.created_at).toLocaleDateString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

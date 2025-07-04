@@ -1,184 +1,169 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  UserCheck, 
-  AlertTriangle, 
-  MessageSquare, 
-  BarChart3,
-  Settings,
-  LogOut,
-  Plus
-} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { Users, FileText, AlertTriangle, MessageSquare, LogOut, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface DashboardStats {
-  totalSiswa: number;
-  totalGuru: number;
-  pelanggaranBulanIni: number;
-  konsultasiPending: number;
-}
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
+  const { toast } = useToast();
+  const [stats, setStats] = useState({
+    totalUsers: 0,
     totalSiswa: 0,
-    totalGuru: 0,
-    pelanggaranBulanIni: 0,
-    konsultasiPending: 0
+    totalViolations: 0,
+    totalConsultations: 0
   });
-  const [loading, setLoading] = useState(true);
+  const [newAnnouncementTitle, setNewAnnouncementTitle] = useState('');
+  const [newAnnouncementContent, setNewAnnouncementContent] = useState('');
+  const [isAddingAnnouncement, setIsAddingAnnouncement] = useState(false);
 
   useEffect(() => {
-    fetchDashboardStats();
+    fetchStats();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchStats = async () => {
     try {
-      setLoading(true);
-      
-      // Fetch total students
-      const { count: siswaCount } = await supabase
-        .from('siswa')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch total teachers
-      const { count: guruCount } = await supabase
-        .from('guru')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch violations this month
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const { count: pelanggaranCount } = await supabase
-        .from('pelanggaran_siswa')
-        .select('*', { count: 'exact', head: true })
-        .gte('tanggal_pelanggaran', `${currentMonth}-01`);
-
-      // Fetch pending consultations
-      const { count: konsultasiCount } = await supabase
-        .from('konsultasi')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+      const [usersRes, siswaRes, violationsRes, consultationsRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact' }),
+        supabase.from('siswa').select('id', { count: 'exact' }),
+        supabase.from('pelanggaran_siswa').select('id', { count: 'exact' }),
+        supabase.from('konsultasi').select('id', { count: 'exact' })
+      ]);
 
       setStats({
-        totalSiswa: siswaCount || 0,
-        totalGuru: guruCount || 0,
-        pelanggaranBulanIni: pelanggaranCount || 0,
-        konsultasiPending: konsultasiCount || 0
+        totalUsers: usersRes.count || 0,
+        totalSiswa: siswaRes.count || 0,
+        totalViolations: violationsRes.count || 0,
+        totalConsultations: consultationsRes.count || 0
       });
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching stats:', error);
     }
   };
 
-  const handleLogout = async () => {
+  const handleAddAnnouncement = async () => {
+    if (!newAnnouncementTitle.trim() || !newAnnouncementContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Judul dan konten pengumuman harus diisi",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAddingAnnouncement(true);
+    try {
+      const { error } = await supabase
+        .from('berita')
+        .insert({
+          judul: newAnnouncementTitle,
+          konten: newAnnouncementContent,
+          penulis_id: profile?.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Pengumuman berhasil ditambahkan"
+      });
+
+      setNewAnnouncementTitle('');
+      setNewAnnouncementContent('');
+    } catch (error) {
+      console.error('Error adding announcement:', error);
+      toast({
+        title: "Error",
+        description: "Gagal menambahkan pengumuman",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAddingAnnouncement(false);
+    }
+  };
+
+  const handleSignOut = async () => {
     await signOut();
+    toast({
+      title: "Logout Berhasil",
+      description: "Anda telah logout dari sistem"
+    });
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-gradient rounded-full flex items-center justify-center">
                 <span className="text-white font-bold">BK</span>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Dashboard Admin</h1>
-                <p className="text-sm text-gray-500">BK Connect - SMA Negeri 1 Lumbang</p>
+                <h1 className="text-xl font-bold text-gray-900">Dashboard Admin</h1>
+                <p className="text-sm text-gray-600">Selamat datang, {profile?.nama_lengkap}</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{profile?.nama_lengkap}</p>
-                <Badge variant="default" className="text-xs">Admin BK</Badge>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <Button onClick={handleSignOut} variant="outline" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Selamat Datang, {profile?.nama_lengkap}
-          </h2>
-          <p className="text-gray-600">
-            Kelola sistem BK Connect dari dashboard admin ini.
-          </p>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <p className="text-xs text-muted-foreground">Semua pengguna sistem</p>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Siswa</CardTitle>
-              <Users className="h-4 w-4 text-blue-600" />
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {loading ? '...' : stats.totalSiswa}
-              </div>
-              <p className="text-xs text-gray-500">Siswa terdaftar</p>
+              <div className="text-2xl font-bold">{stats.totalSiswa}</div>
+              <p className="text-xs text-muted-foreground">Siswa aktif</p>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Guru</CardTitle>
-              <UserCheck className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Total Pelanggaran</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {loading ? '...' : stats.totalGuru}
-              </div>
-              <p className="text-xs text-gray-500">Guru & staff</p>
+              <div className="text-2xl font-bold">{stats.totalViolations}</div>
+              <p className="text-xs text-muted-foreground">Semua pelanggaran</p>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pelanggaran Bulan Ini</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <CardTitle className="text-sm font-medium">Total Konsultasi</CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {loading ? '...' : stats.pelanggaranBulanIni}
-              </div>
-              <p className="text-xs text-gray-500">Kasus tercatat</p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Konsultasi Pending</CardTitle>
-              <MessageSquare className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {loading ? '...' : stats.konsultasiPending}
-              </div>
-              <p className="text-xs text-gray-500">Menunggu tindak lanjut</p>
+              <div className="text-2xl font-bold">{stats.totalConsultations}</div>
+              <p className="text-xs text-muted-foreground">Semua konsultasi</p>
             </CardContent>
           </Card>
         </div>
@@ -187,61 +172,72 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="w-5 h-5 mr-2" />
-                Manajemen Data
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Tambah Pengumuman
               </CardTitle>
               <CardDescription>
-                Kelola data siswa, guru, dan kelas
+                Buat pengumuman baru untuk semua pengguna
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Siswa Baru
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Guru Baru
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Kelola Kelas
-                </Button>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="announcement-title">Judul Pengumuman</Label>
+                <Input
+                  id="announcement-title"
+                  value={newAnnouncementTitle}
+                  onChange={(e) => setNewAnnouncementTitle(e.target.value)}
+                  placeholder="Masukkan judul pengumuman"
+                />
               </div>
+              <div>
+                <Label htmlFor="announcement-content">Isi Pengumuman</Label>
+                <Textarea
+                  id="announcement-content"
+                  value={newAnnouncementContent}
+                  onChange={(e) => setNewAnnouncementContent(e.target.value)}
+                  placeholder="Masukkan isi pengumuman"
+                  rows={4}
+                />
+              </div>
+              <Button 
+                onClick={handleAddAnnouncement}
+                disabled={isAddingAnnouncement}
+                className="w-full"
+              >
+                {isAddingAnnouncement ? 'Menambahkan...' : 'Tambah Pengumuman'}
+              </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2" />
-                Laporan & Analisis
-              </CardTitle>
+              <CardTitle>Menu Cepat</CardTitle>
               <CardDescription>
-                Lihat laporan dan statistik BK
+                Akses fitur utama dengan cepat
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Laporan Pelanggaran
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Laporan Konsultasi
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Users className="w-4 h-4 mr-2" />
-                  Statistik Kehadiran
-                </Button>
-              </div>
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full justify-start">
+                <Users className="w-4 h-4 mr-2" />
+                Kelola Pengguna
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                <FileText className="w-4 h-4 mr-2" />
+                Lihat Laporan
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Kelola Pelanggaran
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Kelola Konsultasi
+              </Button>
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
