@@ -53,13 +53,15 @@ const Login = () => {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
+        console.error('Google sign in error:', error);
         toast({
           title: "Error Login Google",
-          description: error.message,
+          description: "Gagal login dengan Google. Pastikan konfigurasi OAuth sudah benar.",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error('Google sign in error:', error);
       toast({
         title: "Error",
         description: "Terjadi kesalahan saat login dengan Google",
@@ -86,35 +88,67 @@ const Login = () => {
           return;
         }
 
+        if (!username.trim() || !namaLengkap.trim()) {
+          toast({
+            title: "Error",
+            description: "Username dan nama lengkap harus diisi",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        console.log('Attempting sign up with:', { email, username, namaLengkap, role: selectedRole });
+
         const { data, error } = await signUp(email, password, {
-          username,
-          nama_lengkap: namaLengkap,
+          username: username.trim(),
+          nama_lengkap: namaLengkap.trim(),
           role: selectedRole
         });
 
         if (error) {
+          console.error('Sign up error:', error);
           toast({
             title: "Error Pendaftaran",
-            description: error.message,
+            description: error.message || "Gagal mendaftar akun baru",
             variant: "destructive"
           });
         } else {
+          console.log('Sign up successful:', data);
           toast({
             title: "Pendaftaran Berhasil",
             description: "Akun Anda telah dibuat. Silakan login.",
           });
           setIsSignUp(false);
+          // Reset form
+          setEmail('');
+          setPassword('');
+          setUsername('');
+          setNamaLengkap('');
+          setSelectedRole('');
         }
       } else {
+        console.log('Attempting sign in with:', email);
+
         const { data, error } = await signIn(email, password);
 
         if (error) {
+          console.error('Sign in error:', error);
+          let errorMessage = "Email atau password salah";
+          
+          if (error.message.includes('Invalid login credentials')) {
+            errorMessage = "Email atau password tidak valid. Pastikan akun sudah terdaftar.";
+          } else if (error.message.includes('Email not confirmed')) {
+            errorMessage = "Email belum dikonfirmasi. Periksa inbox email Anda.";
+          }
+          
           toast({
             title: "Error Login",
-            description: error.message,
+            description: errorMessage,
             variant: "destructive"
           });
         } else {
+          console.log('Sign in successful:', data);
           toast({
             title: "Login Berhasil",
             description: "Selamat datang di BK Connect!",
@@ -122,9 +156,10 @@ const Login = () => {
         }
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan. Silakan coba lagi.",
+        description: "Terjadi kesalahan sistem. Silakan coba lagi.",
         variant: "destructive"
       });
     } finally {
@@ -137,8 +172,12 @@ const Login = () => {
       <div className="w-full max-w-md">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">BK</span>
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <img 
+              src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
+              alt="BK Connect Logo" 
+              className="w-16 h-16 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-primary-700 mb-2">BK Connect</h1>
           <p className="text-gray-600">SMA NEGERI 1 LUMBANG</p>
@@ -283,7 +322,15 @@ const Login = () => {
             <div className="mt-6 text-center">
               <Button
                 variant="link"
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  // Reset form when switching
+                  setEmail('');
+                  setPassword('');
+                  setUsername('');
+                  setNamaLengkap('');
+                  setSelectedRole('');
+                }}
                 className="text-primary-600 hover:text-primary-700"
               >
                 {isSignUp ? 'Sudah punya akun? Login' : 'Belum punya akun? Daftar'}

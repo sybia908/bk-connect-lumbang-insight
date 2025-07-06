@@ -79,6 +79,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -90,6 +91,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return null;
       }
 
+      console.log('Profile fetched:', data);
       return data;
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -106,12 +108,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
+          // Fetch user profile with a small delay to ensure database trigger has run
           setTimeout(async () => {
             const profileData = await fetchProfile(session.user.id);
             setProfile(profileData);
             resetInactivityTimer();
-          }, 0);
+          }, 500); // Small delay to ensure profile is created
         } else {
           setProfile(null);
           if (inactivityTimer) {
@@ -126,6 +128,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -134,7 +137,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const profileData = await fetchProfile(session.user.id);
           setProfile(profileData);
           resetInactivityTimer();
-        }, 0);
+        }, 500);
       }
       setLoading(false);
     });
@@ -144,21 +147,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Attempting sign in for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         throw error;
       }
 
+      console.log('Sign in successful:', data.user?.email);
+
       // Update last login
       if (data.user) {
-        await supabase
-          .from('profiles')
-          .update({ last_login: new Date().toISOString() })
-          .eq('user_id', data.user.id);
+        try {
+          await supabase
+            .from('profiles')
+            .update({ last_login: new Date().toISOString() })
+            .eq('user_id', data.user.id);
+        } catch (updateError) {
+          console.error('Error updating last login:', updateError);
+          // Don't throw this error as it's not critical
+        }
       }
 
       return { data, error: null };
@@ -170,12 +182,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signInWithGoogle = async () => {
     try {
+      console.log('Attempting Google sign in');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/`
         }
       });
+
+      if (error) {
+        console.error('Google sign in error:', error);
+      }
 
       return { data, error };
     } catch (error) {
@@ -186,16 +203,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
+      console.log('Attempting sign up for:', email, 'with userData:', userData);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
-          data: userData
+          data: {
+            username: userData.username,
+            nama_lengkap: userData.nama_lengkap,
+            role: userData.role
+          }
         }
       });
 
-      return { data, error };
+      if (error) {
+        console.error('Sign up error:', error);
+        throw error;
+      }
+
+      console.log('Sign up successful:', data);
+      return { data, error: null };
     } catch (error) {
       console.error('Sign up error:', error);
       return { data: null, error };
@@ -204,6 +233,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
+      console.log('Signing out');
       if (inactivityTimer) {
         clearTimeout(inactivityTimer);
         setInactivityTimer(null);

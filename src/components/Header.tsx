@@ -17,7 +17,7 @@ const Header = () => {
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden bg-white">
               <img 
-                src="https://drive.google.com/uc?export=view&id=1DhBycV4hx0FYtOEGM7IwwV5xbOSbSSw8" 
+                src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
                 alt="BK Connect Logo" 
                 className="w-10 h-10 object-contain"
               />
