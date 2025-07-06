@@ -9,12 +9,20 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+      setIsMenuOpen(false);
+    }
+  };
+
   return (
     <header className="bg-background shadow-lg border-b-4 border-primary-500 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Title */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden bg-white">
               <img 
                 src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
@@ -30,21 +38,36 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#beranda" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+            <button 
+              onClick={() => scrollToSection('beranda')}
+              className="text-foreground hover:text-primary-600 transition-colors font-medium"
+            >
               Beranda
-            </a>
-            <a href="#tentang" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+            </button>
+            <button 
+              onClick={() => navigate('/about')}
+              className="text-foreground hover:text-primary-600 transition-colors font-medium"
+            >
               Tentang BK
-            </a>
-            <a href="#layanan" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+            </button>
+            <button 
+              onClick={() => scrollToSection('layanan')}
+              className="text-foreground hover:text-primary-600 transition-colors font-medium"
+            >
               Layanan
-            </a>
-            <a href="#berita" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+            </button>
+            <button 
+              onClick={() => navigate('/news')}
+              className="text-foreground hover:text-primary-600 transition-colors font-medium"
+            >
               Berita
-            </a>
-            <a href="#kontak" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+            </button>
+            <button 
+              onClick={() => navigate('/contact')}
+              className="text-foreground hover:text-primary-600 transition-colors font-medium"
+            >
               Kontak
-            </a>
+            </button>
           </nav>
 
           {/* Right side buttons */}
@@ -72,21 +95,36 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <nav className="flex flex-col space-y-4">
-              <a href="#beranda" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+              <button 
+                onClick={() => scrollToSection('beranda')}
+                className="text-foreground hover:text-primary-600 transition-colors font-medium text-left"
+              >
                 Beranda
-              </a>
-              <a href="#tentang" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+              </button>
+              <button 
+                onClick={() => navigate('/about')}
+                className="text-foreground hover:text-primary-600 transition-colors font-medium text-left"
+              >
                 Tentang BK
-              </a>
-              <a href="#layanan" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+              </button>
+              <button 
+                onClick={() => scrollToSection('layanan')}
+                className="text-foreground hover:text-primary-600 transition-colors font-medium text-left"
+              >
                 Layanan
-              </a>
-              <a href="#berita" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+              </button>
+              <button 
+                onClick={() => navigate('/news')}
+                className="text-foreground hover:text-primary-600 transition-colors font-medium text-left"
+              >
                 Berita
-              </a>
-              <a href="#kontak" className="text-foreground hover:text-primary-600 transition-colors font-medium">
+              </button>
+              <button 
+                onClick={() => navigate('/contact')}
+                className="text-foreground hover:text-primary-600 transition-colors font-medium text-left"
+              >
                 Kontak
-              </a>
+              </button>
             </nav>
           </div>
         )}

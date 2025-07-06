@@ -9,6 +9,9 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import NewsPage from "./pages/NewsPage";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import GuruBKDashboard from "./pages/dashboard/GuruBKDashboard";
 import WaliKelasDashboard from "./pages/dashboard/WaliKelasDashboard";
@@ -29,6 +32,9 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/news" element={<NewsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected Dashboard Routes */}

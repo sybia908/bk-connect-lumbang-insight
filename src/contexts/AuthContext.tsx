@@ -205,6 +205,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       console.log('Attempting sign up for:', email, 'with userData:', userData);
       
+      // Check if username already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', userData.username)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Username sudah digunakan, silakan pilih username lain');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -220,6 +231,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error) {
         console.error('Sign up error:', error);
+        
+        // Handle specific errors
+        if (error.message.includes('User already registered')) {
+          throw new Error('Email sudah terdaftar, silakan gunakan email lain atau login');
+        } else if (error.message.includes('Password should be at least')) {
+          throw new Error('Password minimal 6 karakter');
+        } else if (error.message.includes('Invalid email')) {
+          throw new Error('Format email tidak valid');
+        }
+        
         throw error;
       }
 
@@ -227,7 +248,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { data, error: null };
     } catch (error) {
       console.error('Sign up error:', error);
-      return { data: null, error };
+      return { data: null, error: error instanceof Error ? error : new Error('Terjadi kesalahan saat mendaftar') };
     }
   };
 

@@ -72,32 +72,86 @@ const Login = () => {
     }
   };
 
+  const validateForm = () => {
+    if (!email.trim()) {
+      toast({
+        title: "Error",
+        description: "Email harus diisi",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!password.trim()) {
+      toast({
+        title: "Error",
+        description: "Password harus diisi",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password minimal 6 karakter",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (isSignUp) {
+      if (!selectedRole) {
+        toast({
+          title: "Error",
+          description: "Silakan pilih peran Anda",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (!username.trim()) {
+        toast({
+          title: "Error",
+          description: "Username harus diisi",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (username.length < 3) {
+        toast({
+          title: "Error",
+          description: "Username minimal 3 karakter",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (!namaLengkap.trim()) {
+        toast({
+          title: "Error",
+          description: "Nama lengkap harus diisi",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isSignUp) {
-        if (!selectedRole) {
-          toast({
-            title: "Error",
-            description: "Silakan pilih peran Anda",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-
-        if (!username.trim() || !namaLengkap.trim()) {
-          toast({
-            title: "Error",
-            description: "Username dan nama lengkap harus diisi",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-
         console.log('Attempting sign up with:', { email, username, namaLengkap, role: selectedRole });
 
         const { data, error } = await signUp(email, password, {
