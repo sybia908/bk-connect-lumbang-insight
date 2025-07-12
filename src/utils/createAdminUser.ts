@@ -22,7 +22,7 @@ export const createAdminUser = async () => {
       console.error('Error checking existing users:', listError);
     }
 
-    const existingAuthUser = usersData?.users?.find(user => user.email === 'andikabgs@gmail.com');
+    const existingAuthUser = usersData?.users?.find((user: any) => user.email === 'andikabgs@gmail.com');
     
     if (!existingAuthUser) {
       console.log('Admin user needs to be created through registration');
