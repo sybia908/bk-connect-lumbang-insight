@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+interface ContactInfo {
+  alamat: string;
+  telepon: string;
+  email: string;
+  jam_layanan: string;
+  whatsapp: string;
+}
 
 const ContactPage = () => {
   const navigate = useNavigate();
@@ -18,6 +26,21 @@ const ContactPage = () => {
     subject: '',
     message: ''
   });
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({
+    alamat: 'SMA Negeri 1 Lumbang\nJl. Raya Lumbang No. 123\nLumbang, Pasuruan, Jawa Timur 67183',
+    telepon: '(0343) 123-4567',
+    email: 'bk@sman1lumbang.sch.id',
+    jam_layanan: 'Senin - Jumat: 07:00 - 15:00 WIB\nSabtu: 07:00 - 12:00 WIB\nMinggu: Tutup',
+    whatsapp: '6281234567890'
+  });
+
+  useEffect(() => {
+    // Load contact info from localStorage if available
+    const saved = localStorage.getItem('contact_info');
+    if (saved) {
+      setContactInfo(JSON.parse(saved));
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,23 +74,24 @@ const ContactPage = () => {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center h-auto sm:h-16 py-4 sm:py-0 space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <img 
                 src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
                 alt="Logo" 
-                className="w-10 h-10"
+                className="w-10 h-10 flex-shrink-0"
               />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Hubungi Kami</h1>
-                <p className="text-sm text-gray-500">SMA NEGERI 1 LUMBANG</p>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Hubungi Kami</h1>
+                <p className="text-xs sm:text-sm text-gray-500">SMA NEGERI 1 LUMBANG</p>
               </div>
             </div>
             
             <Button
               variant="outline"
               onClick={() => navigate('/')}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 w-full sm:w-auto justify-center"
+              size="sm"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Kembali</span>
@@ -77,8 +101,8 @@ const ContactPage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Contact Information */}
           <div className="space-y-6">
             <Card className="shadow-sm">
@@ -87,47 +111,43 @@ const ContactPage = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start space-x-3">
-                  <MapPin className="w-5 h-5 text-primary-600 mt-1" />
-                  <div>
+                  <MapPin className="w-5 h-5 text-primary-600 mt-1 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
                     <h4 className="font-semibold text-gray-900">Alamat</h4>
-                    <p className="text-gray-600 text-sm">
-                      SMA Negeri 1 Lumbang<br />
-                      Jl. Raya Lumbang No. 123<br />
-                      Lumbang, Pasuruan, Jawa Timur 67183
-                    </p>
+                    <div className="text-gray-600 text-sm whitespace-pre-line">
+                      {contactInfo.alamat}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <Phone className="w-5 h-5 text-primary-600 mt-1" />
-                  <div>
+                  <Phone className="w-5 h-5 text-primary-600 mt-1 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
                     <h4 className="font-semibold text-gray-900">Telepon</h4>
                     <p className="text-gray-600 text-sm">
-                      (0343) 123-4567<br />
-                      0812-3456-7890 (WhatsApp)
+                      {contactInfo.telepon}<br />
+                      {contactInfo.whatsapp && `+${contactInfo.whatsapp} (WhatsApp)`}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <Mail className="w-5 h-5 text-primary-600 mt-1" />
-                  <div>
+                  <Mail className="w-5 h-5 text-primary-600 mt-1 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
                     <h4 className="font-semibold text-gray-900">Email</h4>
                     <p className="text-gray-600 text-sm">
-                      bk@sman1lumbang.sch.id<br />
+                      {contactInfo.email}<br />
                       info@sman1lumbang.sch.id
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <Clock className="w-5 h-5 text-primary-600 mt-1" />
-                  <div>
+                  <Clock className="w-5 h-5 text-primary-600 mt-1 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
                     <h4 className="font-semibold text-gray-900">Jam Layanan</h4>
-                    <div className="text-gray-600 text-sm space-y-1">
-                      <p>Senin - Jumat: 07:00 - 15:00 WIB</p>
-                      <p>Sabtu: 07:00 - 12:00 WIB</p>
-                      <p>Minggu: Tutup</p>
+                    <div className="text-gray-600 text-sm whitespace-pre-line">
+                      {contactInfo.jam_layanan}
                     </div>
                   </div>
                 </div>
@@ -162,8 +182,8 @@ const ContactPage = () => {
             </Card>
           </div>
 
-          {/* Contact Form */}
-          <div>
+          {/* Contact Form and Quick Actions */}
+          <div className="space-y-6">
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="text-primary-700">Kirim Pesan</CardTitle>
@@ -232,7 +252,7 @@ const ContactPage = () => {
             </Card>
 
             {/* Quick Actions */}
-            <Card className="shadow-sm mt-6">
+            <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="text-primary-700">Aksi Cepat</CardTitle>
               </CardHeader>
@@ -254,7 +274,7 @@ const ContactPage = () => {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => window.open('https://wa.me/6281234567890', '_blank')}
+                  onClick={() => window.open(`https://wa.me/${contactInfo.whatsapp}`, '_blank')}
                 >
                   WhatsApp BK Connect
                 </Button>

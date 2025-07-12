@@ -1,408 +1,404 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { createAdminUser } from '@/utils/createAdminUser';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  
-  // Sign up additional fields
-  const [username, setUsername] = useState('');
-  const [namaLengkap, setNamaLengkap] = useState('');
-  
-  const { signIn, signInWithGoogle, signUp, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signIn, signUp, user, loading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [loginData, setLoginData] = useState({
+    email: '',
+    password: ''
+  });
+  
+  const [signupData, setSignupData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    nama_lengkap: '',
+    username: '',
+    role: 'siswa' as const
+  });
 
+  // Redirect if already authenticated
   useEffect(() => {
-    if (user && profile) {
-      // Redirect based on role
-      switch (profile.role) {
-        case 'admin':
-          navigate('/dashboard/admin');
-          break;
-        case 'guru_bk':
-          navigate('/dashboard/guru-bk');
-          break;
-        case 'wali_kelas':
-          navigate('/dashboard/wali-kelas');
-          break;
-        case 'siswa':
-          navigate('/dashboard/siswa');
-          break;
-        default:
-          navigate('/dashboard');
-      }
+    if (user && !loading) {
+      navigate('/dashboard/admin');
     }
-  }, [user, profile, navigate]);
+  }, [user, loading, navigate]);
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  // Initialize admin user on component mount
+  useEffect(() => {
+    createAdminUser().then(result => {
+      if (result.success) {
+        console.log('Admin user setup completed');
+      }
+    });
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signIn(loginData.email, loginData.password);
+      
       if (error) {
-        console.error('Google sign in error:', error);
+        let errorMessage = 'Terjadi kesalahan saat login';
+        
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email atau password salah';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email belum dikonfirmasi. Silakan cek email Anda';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti';
+        }
+        
         toast({
-          title: "Error Login Google",
-          description: "Gagal login dengan Google. Pastikan konfigurasi OAuth sudah benar.",
+          title: "Login Gagal",
+          description: errorMessage,
           variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Login Berhasil",
+          description: "Selamat datang di BK Connect!",
         });
       }
     } catch (error) {
-      console.error('Google sign in error:', error);
+      console.error('Login error:', error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan saat login dengan Google",
+        description: "Terjadi kesalahan sistem",
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const validateForm = () => {
-    if (!email.trim()) {
-      toast({
-        title: "Error",
-        description: "Email harus diisi",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    if (!password.trim()) {
-      toast({
-        title: "Error",
-        description: "Password harus diisi",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password minimal 6 karakter",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    if (isSignUp) {
-      if (!selectedRole) {
-        toast({
-          title: "Error",
-          description: "Silakan pilih peran Anda",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      if (!username.trim()) {
-        toast({
-          title: "Error",
-          description: "Username harus diisi",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      if (username.length < 3) {
-        toast({
-          title: "Error",
-          description: "Username minimal 3 karakter",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      if (!namaLengkap.trim()) {
-        toast({
-          title: "Error",
-          description: "Nama lengkap harus diisi",
-          variant: "destructive"
-        });
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    if (signupData.password !== signupData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Password dan konfirmasi password tidak sama",
+        variant: "destructive"
+      });
       return;
     }
 
-    setLoading(true);
+    if (signupData.password.length < 6) {
+      toast({
+        title: "Error", 
+        description: "Password harus minimal 6 karakter",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      if (isSignUp) {
-        console.log('Attempting sign up with:', { email, username, namaLengkap, role: selectedRole });
-
-        const { data, error } = await signUp(email, password, {
-          username: username.trim(),
-          nama_lengkap: namaLengkap.trim(),
-          role: selectedRole
+      const { error } = await signUp(signupData.email, signupData.password, {
+        nama_lengkap: signupData.nama_lengkap,
+        username: signupData.username,
+        role: signupData.role
+      });
+      
+      if (error) {
+        let errorMessage = 'Terjadi kesalahan saat mendaftar';
+        
+        if (error.message.includes('User already registered')) {
+          errorMessage = 'Email sudah terdaftar. Silakan gunakan email lain atau login';
+        } else if (error.message.includes('Password should be at least 6 characters')) {
+          errorMessage = 'Password harus minimal 6 karakter';
+        } else if (error.message.includes('Unable to validate email address')) {
+          errorMessage = 'Format email tidak valid';
+        }
+        
+        toast({
+          title: "Registrasi Gagal",
+          description: errorMessage,
+          variant: "destructive"
         });
-
-        if (error) {
-          console.error('Sign up error:', error);
-          toast({
-            title: "Error Pendaftaran",
-            description: error.message || "Gagal mendaftar akun baru. Pastikan data sudah benar dan coba lagi.",
-            variant: "destructive"
-          });
-        } else {
-          console.log('Sign up successful:', data);
-          toast({
-            title: "Pendaftaran Berhasil",
-            description: "Akun Anda telah dibuat. Silakan login atau periksa email untuk konfirmasi.",
-          });
-          setIsSignUp(false);
-          // Reset form
-          setEmail('');
-          setPassword('');
-          setUsername('');
-          setNamaLengkap('');
-          setSelectedRole('');
-        }
       } else {
-        console.log('Attempting sign in with:', email);
-
-        const { data, error } = await signIn(email, password);
-
-        if (error) {
-          console.error('Sign in error:', error);
-          let errorMessage = "Email atau password salah";
-          
-          if (error.message.includes('Invalid login credentials')) {
-            errorMessage = "Email atau password tidak valid. Pastikan akun sudah terdaftar.";
-          } else if (error.message.includes('Email not confirmed')) {
-            errorMessage = "Email belum dikonfirmasi. Periksa inbox email Anda.";
-          }
-          
-          toast({
-            title: "Error Login",
-            description: errorMessage,
-            variant: "destructive"
-          });
-        } else {
-          console.log('Sign in successful:', data);
-          toast({
-            title: "Login Berhasil",
-            description: "Selamat datang di BK Connect!",
-          });
-        }
+        toast({
+          title: "Registrasi Berhasil",
+          description: "Akun berhasil dibuat. Silakan cek email untuk konfirmasi.",
+        });
+        
+        // Reset form
+        setSignupData({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          nama_lengkap: '',
+          username: '',
+          role: 'siswa'
+        });
       }
     } catch (error) {
-      console.error('Auth error:', error);
+      console.error('Signup error:', error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan sistem. Silakan coba lagi dalam beberapa saat.",
+        description: "Terjadi kesalahan sistem",
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <img 
-              src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
-              alt="BK Connect Logo" 
-              className="w-16 h-16 object-contain"
-            />
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-white font-bold text-xl">BK</span>
           </div>
-          <h1 className="text-3xl font-bold text-primary-700 mb-2">BK Connect</h1>
-          <p className="text-gray-600">SMA NEGERI 1 LUMBANG</p>
-        </div>
-
-        <Card className="shadow-xl border-0">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-primary-700">
-              {isSignUp ? 'Daftar Akun' : 'Login'}
-            </CardTitle>
-            <CardDescription>
-              {isSignUp ? 'Buat akun baru untuk mengakses BK Connect' : 'Masuk ke akun BK Connect Anda'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignUp && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Peran</Label>
-                    <Select value={selectedRole} onValueChange={setSelectedRole}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih peran Anda" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin BK</SelectItem>
-                        <SelectItem value="guru_bk">Guru BK</SelectItem>
-                        <SelectItem value="wali_kelas">Wali Kelas</SelectItem>
-                        <SelectItem value="siswa">Siswa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Masukkan username"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="namaLengkap">Nama Lengkap</Label>
-                    <Input
-                      id="namaLengkap"
-                      type="text"
-                      value={namaLengkap}
-                      onChange={(e) => setNamaLengkap(e.target.value)}
-                      placeholder="Masukkan nama lengkap"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Masukkan email"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Masukkan password"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-primary-gradient hover:bg-primary-700"
-                disabled={loading}
-              >
-                {loading ? (
-                  "Loading..."
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    {isSignUp ? 'Daftar' : 'Masuk'}
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {!isSignUp && (
-              <div className="mt-4">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Atau
-                    </span>
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full mt-4"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                >
-                  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Masuk dengan Google
-                </Button>
-              </div>
-            )}
-
-            <div className="mt-6 text-center">
-              <Button
-                variant="link"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  // Reset form when switching
-                  setEmail('');
-                  setPassword('');
-                  setUsername('');
-                  setNamaLengkap('');
-                  setSelectedRole('');
-                }}
-                className="text-primary-600 hover:text-primary-700"
-              >
-                {isSignUp ? 'Sudah punya akun? Login' : 'Belum punya akun? Daftar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 text-center">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="text-primary-600 border-primary-200 hover:bg-primary-50"
-          >
-            Kembali ke Beranda
-          </Button>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
+                alt="Logo" 
+                className="w-10 h-10"
+              />
+              <div>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">BK Connect</h1>
+                <p className="text-xs sm:text-sm text-gray-500">SMA NEGERI 1 LUMBANG</p>
+              </div>
+            </div>
+            
+            <Button
+              variant="outline"
+              onClick={() => navigate('/')}
+              className="flex items-center space-x-2"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Kembali ke Beranda</span>
+              <span className="sm:hidden">Kembali</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-primary-gradient rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white font-bold text-2xl">BK</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Selamat Datang</h2>
+            <p className="text-gray-600 mt-2">Sistem Bimbingan dan Konseling Digital</p>
+          </div>
+
+          <Card className="shadow-lg">
+            <Tabs defaultValue="login" className="w-full">
+              <CardHeader className="space-y-1 pb-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Masuk</TabsTrigger>
+                  <TabsTrigger value="signup">Daftar</TabsTrigger>
+                </TabsList>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <TabsContent value="login" className="space-y-4 mt-0">
+                  <div className="space-y-2 text-center">
+                    <CardTitle className="text-xl">Masuk ke Akun Anda</CardTitle>
+                    <CardDescription>
+                      Masukkan email dan password untuk mengakses dashboard
+                    </CardDescription>
+                  </div>
+                  
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">Email</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="nama@contoh.com"
+                        value={loginData.email}
+                        onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Masukkan password"
+                          value={loginData.password}
+                          onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                          required
+                          disabled={isSubmitting}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                          disabled={isSubmitting}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-primary-gradient hover:bg-primary-700" 
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Sedang Masuk...' : 'Masuk'}
+                    </Button>
+                  </form>
+
+                  {/* Admin Credentials Info */}
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium">Akun Admin:</p>
+                    <p className="text-xs text-blue-600">Email: andikabgs@gmail.com</p>
+                    <p className="text-xs text-blue-600">Password: G4l4xymini</p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="signup" className="space-y-4 mt-0">
+                  <div className="space-y-2 text-center">
+                    <CardTitle className="text-xl">Buat Akun Baru</CardTitle>
+                    <CardDescription>
+                      Lengkapi informasi di bawah untuk mendaftar
+                    </CardDescription>
+                  </div>
+                  
+                  <form onSubmit={handleSignup} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-nama">Nama Lengkap</Label>
+                        <Input
+                          id="signup-nama"
+                          type="text"
+                          placeholder="Nama lengkap"
+                          value={signupData.nama_lengkap}
+                          onChange={(e) => setSignupData({ ...signupData, nama_lengkap: e.target.value })}
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-username">Username</Label>
+                        <Input
+                          id="signup-username"
+                          type="text"
+                          placeholder="Username"
+                          value={signupData.username}
+                          onChange={(e) => setSignupData({ ...signupData, username: e.target.value })}
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="nama@contoh.com"
+                        value={signupData.email}
+                        onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Minimal 6 karakter"
+                        value={signupData.password}
+                        onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-confirm">Konfirmasi Password</Label>
+                      <Input
+                        id="signup-confirm"
+                        type="password"
+                        placeholder="Ulangi password"
+                        value={signupData.confirmPassword}
+                        onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-primary-gradient hover:bg-primary-700" 
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Sedang Mendaftar...' : 'Daftar'}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </CardContent>
+            </Tabs>
+          </Card>
+
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-600">
+              Butuh bantuan?{' '}
+              <button 
+                onClick={() => navigate('/contact')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Hubungi Tim BK
+              </button>
+            </p>
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

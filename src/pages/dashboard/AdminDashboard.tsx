@@ -4,9 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Users, FileText, MessageSquare, BarChart3, Settings } from 'lucide-react';
+import { LogOut, Users, FileText, MessageSquare, BarChart3, Settings, MapPin, UserCog } from 'lucide-react';
 import NewsManager from '@/components/NewsManager';
 import AIChat from '@/components/AIChat';
+import ContactManager from '@/components/ContactManager';
+import UserManager from '@/components/UserManager';
 
 const AdminDashboard = () => {
   const { signOut, profile } = useAuth();
@@ -21,28 +23,29 @@ const AdminDashboard = () => {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center h-auto sm:h-16 py-4 sm:py-0 space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <img 
                 src="https://sman1lumbang.sch.id/wp-content/uploads/2022/12/logo-smanilum-cut.png" 
                 alt="Logo" 
-                className="w-10 h-10"
+                className="w-10 h-10 flex-shrink-0"
               />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Dashboard Admin BK</h1>
-                <p className="text-sm text-gray-500">SMA NEGERI 1 LUMBANG</p>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Dashboard Admin BK</h1>
+                <p className="text-xs sm:text-sm text-gray-500">SMA NEGERI 1 LUMBANG</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <div className="text-left sm:text-right">
                 <p className="text-sm font-medium text-gray-900">{profile?.nama_lengkap}</p>
                 <p className="text-xs text-gray-500">Administrator BK</p>
               </div>
               <Button
                 variant="outline"
                 onClick={handleSignOut}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 w-full sm:w-auto justify-center"
+                size="sm"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
@@ -53,37 +56,44 @@ const AdminDashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center space-x-2">
-              <BarChart3 className="w-4 h-4" />
-              <span>Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="news" className="flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Berita</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center space-x-2">
-              <Users className="w-4 h-4" />
-              <span>Pengguna</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai-chat" className="flex items-center space-x-2">
-              <MessageSquare className="w-4 h-4" />
-              <span>AI Assistant</span>
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center space-x-2">
-              <BarChart3 className="w-4 h-4" />
-              <span>Laporan</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center space-x-2">
-              <Settings className="w-4 h-4" />
-              <span>Pengaturan</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 w-full min-w-max">
+              <TabsTrigger value="overview" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Overview</span>
+                <span className="sm:hidden">Home</span>
+              </TabsTrigger>
+              <TabsTrigger value="news" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Berita</span>
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Pengguna</span>
+                <span className="sm:hidden">User</span>
+              </TabsTrigger>
+              <TabsTrigger value="ai-chat" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">AI Assistant</span>
+                <span className="sm:hidden">AI</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Laporan</span>
+                <span className="sm:hidden">Report</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+                <Settings className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Pengaturan</span>
+                <span className="sm:hidden">Setting</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Siswa</CardTitle>
@@ -129,7 +139,7 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Aktivitas Terbaru</CardTitle>
@@ -138,23 +148,23 @@ const AdminDashboard = () => {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Konsultasi baru dari Ahmad Rizki</p>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Konsultasi baru dari Ahmad Rizki</p>
                         <p className="text-xs text-gray-500">2 menit yang lalu</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Berita "Workshop Karakter" dipublikasikan</p>
+                      <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Berita "Workshop Karakter" dipublikasikan</p>
                         <p className="text-xs text-gray-500">1 jam yang lalu</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Pelanggaran ringan dicatat untuk Siti Aminah</p>
+                      <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Pelanggaran ringan dicatat untuk Siti Aminah</p>
                         <p className="text-xs text-gray-500">3 jam yang lalu</p>
                       </div>
                     </div>
@@ -196,17 +206,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>Manajemen Pengguna</CardTitle>
-                <CardDescription>Kelola pengguna sistem BK Connect</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-500 py-8">
-                  Fitur manajemen pengguna sedang dalam pengembangan.
-                </p>
-              </CardContent>
-            </Card>
+            <UserManager />
           </TabsContent>
 
           <TabsContent value="ai-chat">
@@ -235,18 +235,40 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pengaturan Sistem</CardTitle>
-                <CardDescription>Konfigurasi sistem BK Connect</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-500 py-8">
-                  Fitur pengaturan sedang dalam pengembangan.
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="settings" className="space-y-6">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MapPin className="w-5 h-5" />
+                    <span>Pengaturan Kontak</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Kelola informasi kontak yang ditampilkan di website
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ContactManager />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <UserCog className="w-5 h-5" />
+                    <span>Pengaturan Sistem Lainnya</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Konfigurasi umum sistem BK Connect
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center text-gray-500 py-8">
+                    Pengaturan sistem lainnya sedang dalam pengembangan.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
