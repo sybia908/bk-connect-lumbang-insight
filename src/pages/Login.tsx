@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -164,14 +164,14 @@ const Login = () => {
           console.error('Sign up error:', error);
           toast({
             title: "Error Pendaftaran",
-            description: error.message || "Gagal mendaftar akun baru",
+            description: error.message || "Gagal mendaftar akun baru. Pastikan data sudah benar dan coba lagi.",
             variant: "destructive"
           });
         } else {
           console.log('Sign up successful:', data);
           toast({
             title: "Pendaftaran Berhasil",
-            description: "Akun Anda telah dibuat. Silakan login.",
+            description: "Akun Anda telah dibuat. Silakan login atau periksa email untuk konfirmasi.",
           });
           setIsSignUp(false);
           // Reset form
@@ -213,7 +213,7 @@ const Login = () => {
       console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan sistem. Silakan coba lagi.",
+        description: "Terjadi kesalahan sistem. Silakan coba lagi dalam beberapa saat.",
         variant: "destructive"
       });
     } finally {
