@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { createAdminUser } from '@/utils/createAdminUser';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,37 +29,34 @@ const Login = () => {
     confirmPassword: '',
     nama_lengkap: '',
     username: '',
-    role: 'siswa' as const
+    role: 'siswa' as 'admin' | 'guru_bk' | 'wali_kelas' | 'siswa'
   });
 
   // Redirect if already authenticated
   useEffect(() => {
     if (user && !loading) {
-      navigate('/dashboard/admin');
+      if (user.email === 'andikabgs@gmail.com') {
+        navigate('/dashboard/admin');
+      } else {
+        navigate('/dashboard/siswa');
+      }
     }
   }, [user, loading, navigate]);
-
-  // Initialize admin user on component mount
-  useEffect(() => {
-    createAdminUser().then(result => {
-      if (result.success) {
-        console.log('Admin user setup completed');
-      }
-    });
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      console.log('Attempting login with:', loginData.email);
       const { error } = await signIn(loginData.email, loginData.password);
       
       if (error) {
+        console.error('Login error:', error);
         let errorMessage = 'Terjadi kesalahan saat login';
         
         if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email atau password salah';
+          errorMessage = 'Email atau password salah. Pastikan akun sudah terdaftar.';
         } else if (error.message.includes('Email not confirmed')) {
           errorMessage = 'Email belum dikonfirmasi. Silakan cek email Anda';
         } else if (error.message.includes('Too many requests')) {
@@ -72,6 +69,7 @@ const Login = () => {
           variant: "destructive"
         });
       } else {
+        console.log('Login berhasil');
         toast({
           title: "Login Berhasil",
           description: "Selamat datang di BK Connect!",
@@ -91,6 +89,16 @@ const Login = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validasi form
+    if (!signupData.email || !signupData.password || !signupData.nama_lengkap || !signupData.username) {
+      toast({
+        title: "Error",
+        description: "Semua field wajib diisi",
+        variant: "destructive"
+      });
+      return;
+    }
     
     if (signupData.password !== signupData.confirmPassword) {
       toast({
@@ -113,6 +121,13 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
+      console.log('Attempting signup with data:', {
+        email: signupData.email,
+        nama_lengkap: signupData.nama_lengkap,
+        username: signupData.username,
+        role: signupData.role
+      });
+
       const { error } = await signUp(signupData.email, signupData.password, {
         nama_lengkap: signupData.nama_lengkap,
         username: signupData.username,
@@ -120,6 +135,7 @@ const Login = () => {
       });
       
       if (error) {
+        console.error('Signup error:', error);
         let errorMessage = 'Terjadi kesalahan saat mendaftar';
         
         if (error.message.includes('User already registered')) {
@@ -128,6 +144,8 @@ const Login = () => {
           errorMessage = 'Password harus minimal 6 karakter';
         } else if (error.message.includes('Unable to validate email address')) {
           errorMessage = 'Format email tidak valid';
+        } else if (error.message.includes('Username sudah digunakan')) {
+          errorMessage = 'Username sudah digunakan, silakan pilih username lain';
         }
         
         toast({
@@ -136,12 +154,13 @@ const Login = () => {
           variant: "destructive"
         });
       } else {
+        console.log('Signup berhasil');
         toast({
           title: "Registrasi Berhasil",
-          description: "Akun berhasil dibuat. Silakan cek email untuk konfirmasi.",
+          description: "Akun berhasil dibuat. Silakan login dengan akun Anda.",
         });
         
-        // Reset form
+        // Reset form dan pindah ke tab login
         setSignupData({
           email: '',
           password: '',
@@ -149,6 +168,12 @@ const Login = () => {
           nama_lengkap: '',
           username: '',
           role: 'siswa'
+        });
+        
+        // Set email di form login untuk kemudahan
+        setLoginData({
+          email: signupData.email,
+          password: ''
         });
       }
     } catch (error) {
@@ -291,9 +316,11 @@ const Login = () => {
 
                   {/* Admin Credentials Info */}
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800 font-medium">Akun Admin:</p>
+                    <p className="text-sm text-blue-800 font-medium">Info Akun Admin:</p>
+                    <p className="text-xs text-blue-600">Daftar akun baru dengan:</p>
                     <p className="text-xs text-blue-600">Email: andikabgs@gmail.com</p>
                     <p className="text-xs text-blue-600">Password: G4l4xymini</p>
+                    <p className="text-xs text-blue-600">Role: Admin</p>
                   </div>
                 </TabsContent>
 
@@ -308,7 +335,7 @@ const Login = () => {
                   <form onSubmit={handleSignup} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="signup-nama">Nama Lengkap</Label>
+                        <Label htmlFor="signup-nama">Nama Lengkap *</Label>
                         <Input
                           id="signup-nama"
                           type="text"
@@ -321,7 +348,7 @@ const Login = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="signup-username">Username</Label>
+                        <Label htmlFor="signup-username">Username *</Label>
                         <Input
                           id="signup-username"
                           type="text"
@@ -335,7 +362,28 @@ const Login = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
+                      <Label htmlFor="signup-role">Role *</Label>
+                      <Select 
+                        value={signupData.role} 
+                        onValueChange={(value: 'admin' | 'guru_bk' | 'wali_kelas' | 'siswa') => 
+                          setSignupData({ ...signupData, role: value })
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="siswa">Siswa</SelectItem>
+                          <SelectItem value="guru_bk">Guru BK</SelectItem>
+                          <SelectItem value="wali_kelas">Wali Kelas</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email *</Label>
                       <Input
                         id="signup-email"
                         type="email"
@@ -348,7 +396,7 @@ const Login = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
+                      <Label htmlFor="signup-password">Password *</Label>
                       <Input
                         id="signup-password"
                         type="password"
@@ -361,7 +409,7 @@ const Login = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="signup-confirm">Konfirmasi Password</Label>
+                      <Label htmlFor="signup-confirm">Konfirmasi Password *</Label>
                       <Input
                         id="signup-confirm"
                         type="password"
