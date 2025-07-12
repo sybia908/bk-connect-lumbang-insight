@@ -16,13 +16,13 @@ export const createAdminUser = async () => {
     }
 
     // Check if user exists in auth
-    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
     
     if (listError) {
       console.error('Error checking existing users:', listError);
     }
 
-    const existingAuthUser = users?.users?.find(user => user.email === 'andikabgs@gmail.com');
+    const existingAuthUser = usersData?.users?.find(user => user.email === 'andikabgs@gmail.com');
     
     if (!existingAuthUser) {
       console.log('Admin user needs to be created through registration');

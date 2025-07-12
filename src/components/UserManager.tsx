@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +47,7 @@ const UserManager = () => {
     email: '',
     username: '',
     nama_lengkap: '',
-    role: 'siswa' as const,
+    role: 'siswa' as 'admin' | 'guru_bk' | 'wali_kelas' | 'siswa',
     is_active: true
   });
 
@@ -271,7 +270,7 @@ const UserManager = () => {
                       <Label htmlFor="role">Role</Label>
                       <Select 
                         value={formData.role} 
-                        onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+                        onValueChange={(value: 'admin' | 'guru_bk' | 'wali_kelas' | 'siswa') => setFormData({ ...formData, role: value })}
                       >
                         <SelectTrigger>
                           <SelectValue />
